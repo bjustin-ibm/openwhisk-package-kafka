@@ -29,16 +29,20 @@ consumers = dict()
 
 @app.route('/triggers/<namespace>/<trigger>', methods=['PUT'])
 def postTrigger(namespace, trigger):
+    logging.info('PUT /triggers/{}/{}'.format(namespace, trigger))
+
     body = request.get_json(force=True, silent=True)
     triggerFQN = '/' + namespace + '/' + trigger
 
     if triggerFQN in consumers:
-        logging.info("[{}] Trigger already exists".format(triggerFQN))
-        trigger_get_status_code = 403
-        result = {
+        logging.info("[{}] Refusing to create trigger because it already exists.".format(triggerFQN))
+        response = jsonify({
             'success': False,
             'error': "already exists"
-        }
+        })
+        response.status_code = 403
+
+        return response
     else:
         logging.info("[{}] Ensuring user has access rights to post a trigger".format(triggerFQN))
 
@@ -62,9 +66,10 @@ def postTrigger(namespace, trigger):
                 trigger_get_status_code))
             result = {'success': False}
 
-    response = jsonify(result)
-    response.status_code = trigger_get_status_code
-    return response
+        response = jsonify(result)
+        response.status_code = trigger_get_status_code
+
+        return response
 
 
 @app.route('/triggers/<namespace>/<trigger>', methods=['DELETE'])
