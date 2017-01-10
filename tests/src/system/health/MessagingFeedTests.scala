@@ -118,6 +118,8 @@ class MessagingFeedTests
                         "kafka_brokers_sasl" -> kafka_brokers_sasl,
                         "topic" -> topic.toJson))
             }
+
+            println("Waiting for trigger create")
             withActivation(wsk.activation, feedCreationResult, initialWait = 5 seconds, totalWait = 60 seconds) {
                 activation =>
                     // should be successful
@@ -126,15 +128,21 @@ class MessagingFeedTests
 
             // It takes a moment for the consumer to fully initialize. We choose 2 seconds
             // as a temporary length of time to wait for.
+            println("Sleepy time...")
             Thread.sleep(2000)
+
+            println("Creating producer")
             val producer = new KafkaProducer[String, String](props)
             val record = new ProducerRecord(topic, "key", currentTime)
+
+            println("Posting message")
             producer.send(record)
             producer.close()
             val activations = wsk.activation.pollFor(N = 2, Some(triggerName), retries = 30)
             var triggerFired = false
             assert(activations.length > 0)
             for (id <- activations) {
+                println(s"Waiting for activation ${id}")
                 val activation = wsk.activation.waitForActivation(id)
                 if (activation.isRight) {
                     // Check if the trigger is fired with the specific message, which is the current time
