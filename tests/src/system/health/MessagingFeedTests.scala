@@ -138,7 +138,9 @@ class MessagingFeedTests
             println("Posting message")
             producer.send(record)
             producer.close()
-            val activations = wsk.activation.pollFor(N = 2, Some(triggerName), retries = 30)
+
+            println("Polling for activations")
+            val activations = wsk.activation.pollFor(N = 1, Some(triggerName), retries = 30)
             var triggerFired = false
             assert(activations.length > 0)
             for (id <- activations) {
