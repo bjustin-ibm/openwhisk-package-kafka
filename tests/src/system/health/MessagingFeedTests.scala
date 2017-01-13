@@ -97,7 +97,6 @@ class MessagingFeedTests
         }
         var kafka_brokers_sasl = JsArray(vec)
 
-        val currentTime = s"${System.currentTimeMillis}"
         System.setProperty("java.security.auth.login.config", "")
         setMessageHubSecurityConfiguration(user, password)
         var props = new Properties()
@@ -107,17 +106,20 @@ class MessagingFeedTests
         props.put("value.serializer", "org.apache.kafka.common.serialization.StringSerializer");
 
         (wp, assetHelper) =>
+        var iteration = 0
+
+        while(true) {
+            iteration += 1
+            val currentTime = s"${System.currentTimeMillis}"
             val triggerName = s"/_/dummyMessageHubTrigger-$currentTime"
-            val feedCreationResult = assetHelper.withCleaner(wsk.trigger, triggerName) {
-                (trigger, _) =>
-                    trigger.create(triggerName, feed = Some(s"$messagingPackage/$messageHubFeed"), parameters = Map(
+            println(s"\nCreating a new trigger #${iteration}: ${triggerName}")
+            val feedCreationResult = wsk.trigger.create(triggerName, feed = Some(s"$messagingPackage/$messageHubFeed"), parameters = Map(
                         "user" -> user.toJson,
                         "password" -> password.toJson,
                         "api_key" -> api_key.toJson,
                         "kafka_admin_url" -> kafka_admin_url.toJson,
                         "kafka_brokers_sasl" -> kafka_brokers_sasl,
                         "topic" -> topic.toJson))
-            }
 
             println("Waiting for trigger create")
             withActivation(wsk.activation, feedCreationResult, initialWait = 5 seconds, totalWait = 60 seconds) {
@@ -154,5 +156,15 @@ class MessagingFeedTests
                 }
             }
             assert(triggerFired == true)
+
+            // explicitly delete the trigger
+            if((iteration % 5) != 0) {
+                println("Deleting trigger")
+                val feedDeletionResult = wsk.trigger.delete(triggerName)
+                feedDeletionResult.stdout should include("ok")
+            } else {
+                println("I think I'll keep this trigger...")
+            }
+        }
     }
 }
