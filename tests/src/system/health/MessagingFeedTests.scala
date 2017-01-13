@@ -129,7 +129,7 @@ class MessagingFeedTests
             // It takes a moment for the consumer to fully initialize. We choose 2 seconds
             // as a temporary length of time to wait for.
             println("Sleepy time...")
-            Thread.sleep(2000)
+            Thread.sleep(5000)
 
             println("Creating producer")
             val producer = new KafkaProducer[String, String](props)
