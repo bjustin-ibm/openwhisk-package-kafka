@@ -56,7 +56,7 @@ class Database:
         self.client.disconnect()
         self.client = None
 
-    def disableTrigger(self, triggerFQN, status_code):
+    def disableTrigger(self, triggerFQN, reason):
         try:
             document = self.database[triggerFQN]
 
@@ -66,11 +66,7 @@ class Database:
                 status = {
                     'active': False,
                     'dateChanged': time.time(),
-                    'reason': {
-                        'kind': 'AUTO',
-                        'statusCode': status_code,
-                        'message': 'Automatically disabled after receiving a {} status code when firing the trigger.'.format(status_code)
-                    }
+                    'reason': reason
                 }
 
                 document['status'] = status

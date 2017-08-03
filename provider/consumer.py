@@ -164,6 +164,7 @@ class ConsumerProcess (Process):
         # always init consumer to None in case the consumer needs to shut down
         # before the KafkaConsumer is fully initialized/assigned
         self.consumer = None
+        self.authErrors = 0
 
         # potentially squirrel away the message that would overflow the payload
         self.queuedMessage = None
@@ -251,6 +252,7 @@ class ConsumerProcess (Process):
                         'group.id': self.trigger,
                         'default.topic.config': {'auto.offset.reset': 'latest'},
                         'enable.auto.commit': False,
+                        'error_cb': self.__error_callback,
                         'api.version.request': True
                     }
 
@@ -267,6 +269,19 @@ class ConsumerProcess (Process):
             consumer.subscribe([self.topic])
             logging.info("[{}] Now listening in order to fire trigger".format(self.trigger))
             return consumer
+
+    def __error_callback(self, error):
+        logging.warn("[{}] {}".format(self.trigger, error))
+
+        if error.code() == KafkaError._AUTHENTICATION:
+            self.authErrors = self.authErrors + 1
+            if self.authErrors % 5 == 0:
+                logging.error("[{}] Automatically disabling trigger due to repeated auth errors.".format(self.trigger))
+                reason = {
+                    'kind': 'AUTO',
+                    'message': 'Automatically disabled after receiving repeated authentication errors.'
+                }
+                self.database.disableTrigger(self.trigger, reason)
 
     def __pollForMessages(self):
         messages = []
@@ -363,7 +378,12 @@ class ConsumerProcess (Process):
                         # abandon all hope?
                         self.setDesiredState(Consumer.State.Disabled)
                         # mark it disabled in the DB
-                        self.database.disableTrigger(self.trigger, status_code)
+                        reason = {
+                            'kind': 'AUTO',
+                            'statusCode': status_code,
+                            'message': 'Automatically disabled after receiving a {} status code when firing the trigger.'.format(status_code)
+                        }
+                        self.database.disableTrigger(self.trigger, reason)
                         retry = False
                 except requests.exceptions.RequestException as e:
                     logging.error('[{}] Error talking to OpenWhisk: {}'.format(self.trigger, e))
