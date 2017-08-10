@@ -37,9 +37,11 @@ class Database:
 
     filters_design_doc_id = '_design/filters'
     only_triggers_view_id = 'only-triggers'
+    by_worker_view_id = 'by-worker'
 
     instance = os.getenv('INSTANCE', 'messageHubTrigger-0')
     canaryId = "canary-{}".format(instance)
+    workersId = "workers"
 
     def __init__(self, timeout=None):
         self.client = CouchDB(self.username, self.password, url=self.url, timeout=timeout)
@@ -123,12 +125,26 @@ class Database:
     def migrate(self):
         logging.info('Starting DB migration')
 
+        by_worker_view = {
+            'map': """function(doc) {
+                        if(doc.triggerURL){
+                            emit(doc.worker || 'worker0', 1);
+                        }
+                    }""",
+            'reduce': '_count'
+        }
+
         filtersDesignDoc = self.database.get_design_document(self.filters_design_doc_id)
 
-        if not filtersDesignDoc.exists():
+        if filtersDesignDoc.exists():
+            if self.by_worker_view_id not in filtersDesignDoc["views"]:
+                logging.info('Updating the design doc')
+                # the by-worker view is new, so let's add it
+                filtersDesignDoc["views"][self.by_worker_view_id] = by_worker_view
+                filtersDesignDoc.save()
+        else:
             logging.info('Creating the design doc')
 
-            # create only-triggers view
             self.database.create_document({
                 '_id': self.filters_design_doc_id,
                 'views': {
@@ -138,10 +154,18 @@ class Database:
                                         emit(doc._id, 1);
                                     }
                                 }"""
-                    }
+                    },
+                    self.by_worker_view_id: by_worker_view
                 }
             })
-        else:
-            logging.info("design doc already exists")
+
+        # TODO have this instance add only itself to the workers doc
+        # this requires the instance to have a worker ID passed into it
+        if self.workersId not in self.database.keys(remote=True):
+            logging.info("Creating workers doc")
+            self.database.create_document({
+                '_id': self.workersId,
+                'workers': ["worker0"]
+            })
 
         logging.info('Database migration complete')

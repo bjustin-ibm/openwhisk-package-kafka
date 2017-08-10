@@ -3,6 +3,9 @@ module.exports = function(dbURL, dbName) {
     var nano = require('nano')(dbURL);
     this.db = nano.db.use(dbName);
 
+    const designDoc = "filters"
+    const assignmentView = "by-worker"
+
     this.getTrigger = function(triggerFQN) {
         return new Promise((resolve, reject) => {
             this.db.get(triggerFQN, (err, result) => {
@@ -60,4 +63,56 @@ module.exports = function(dbURL, dbName) {
                 });
             })
     };
+
+    this.getAvailableWorkers = function() {
+        return new Promise((resolve, reject) => {
+            this.db.get("workers", (err, result) => {
+                if(err) {
+                    reject(err);
+                } else {
+                    resolve(result.workers);
+                }
+            });
+        });
+    }
+
+    this.getTriggerAssignment = function() {
+        return this.getAvailableWorkers()
+            .then(workers => {
+                // a map between available workers and their number of assigned triggers
+                // values will be populated with the results of the assignment view
+                console.log(`Available workers: ${JSON.stringify(workers, null, 2)}`);
+                var counter = {};
+                workers.forEach(worker => {
+                    counter[worker] = 0;
+                });
+
+                return new Promise((resolve, reject) => {
+                    this.db.view(designDoc, assignmentView, {"group": true}, (err, result) => {
+                        if(err) {
+                            reject(err);
+                        } else {
+                            // reasonable default...
+                            var assignment = 'worker0';
+
+                            // update counter values with the number of assigned triggers
+                            // for each worker
+                            result.rows.forEach(row => {
+                                counter[row.key] = row.value;
+                            });
+
+                            // find which of the available workers has the least number of
+                            // assigned triggers
+                            for(availableWorker in counter) {
+                                if(counter[availableWorker] < counter[assignment]) {
+                                    assignment = availableWorker;
+                                }
+                            }
+
+                            resolve(assignment);
+                        }
+                    });
+                });
+        })
+    }
 };

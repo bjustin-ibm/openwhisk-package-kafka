@@ -21,6 +21,8 @@ function main(params) {
 
         if (params.__ow_method === "put") {
             var validatedParams;
+            var workerAssignment = 'worker0';
+
             return validateParameters(params)
                 .then(cleanParams => {
                     validatedParams = cleanParams;
@@ -34,6 +36,13 @@ function main(params) {
                         common.verifyTriggerAuth(validatedParams.triggerURL),
                         checkMessageHubCredentials(validatedParams)
                     ]);
+                })
+                .then(() => {
+                    return db.getTriggerAssignment();
+                })
+                .then(assignment => {
+                    console.log(`Assigning to: ${assignment}`)
+                    validatedParams.worker = assignment;
                 })
                 .then(() => db.recordTrigger(validatedParams))
                 .then(() => {
