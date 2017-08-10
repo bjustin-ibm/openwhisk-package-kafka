@@ -38,6 +38,7 @@ class Database:
     filters_design_doc_id = '_design/filters'
     only_triggers_view_id = 'only-triggers'
     by_worker_view_id = 'by-worker'
+    available_workers_view_id = 'available-workers'
 
     instance = os.getenv('INSTANCE', 'messageHubTrigger-0')
     canaryId = "canary-{}".format(instance)
@@ -133,13 +134,28 @@ class Database:
             'reduce': '_count'
         }
 
+        available_workers_view = {
+            'map': """function(doc) {
+                        if(doc.type === 'worker') {
+                            emit(doc._id, 1);
+                        }
+                    }"""
+        }
+
         filtersDesignDoc = self.database.get_design_document(self.filters_design_doc_id)
 
         if filtersDesignDoc.exists():
+            save = False
             if self.by_worker_view_id not in filtersDesignDoc["views"]:
-                logging.info('Updating the design doc')
-                # the by-worker view is new, so let's add it
+                save = True
                 filtersDesignDoc["views"][self.by_worker_view_id] = by_worker_view
+
+            if self.available_workers_view_id not in filtersDesignDoc["views"]:
+                save = True
+                filtersDesignDoc["views"][self.available_workers_view_id] = available_workers_view
+
+            if save:
+                logging.info('Updating the design doc')
                 filtersDesignDoc.save()
         else:
             logging.info('Creating the design doc')
@@ -154,7 +170,8 @@ class Database:
                                     }
                                 }"""
                     },
-                    self.by_worker_view_id: by_worker_view
+                    self.by_worker_view_id: by_worker_view,
+                    self.available_workers_view_id: available_workers_view
                 }
             })
 
