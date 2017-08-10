@@ -21,7 +21,6 @@ function main(params) {
 
         if (params.__ow_method === "put") {
             var validatedParams;
-            var workerAssignment = 'worker0';
 
             return validateParameters(params)
                 .then(cleanParams => {

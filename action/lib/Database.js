@@ -3,8 +3,9 @@ module.exports = function(dbURL, dbName) {
     var nano = require('nano')(dbURL);
     this.db = nano.db.use(dbName);
 
-    const designDoc = "filters"
-    const assignmentView = "by-worker"
+    const designDoc = "filters";
+    const assignmentView = "by-worker";
+    const availableWorkersView = "available-workers";
 
     this.getTrigger = function(triggerFQN) {
         return new Promise((resolve, reject) => {
@@ -66,11 +67,14 @@ module.exports = function(dbURL, dbName) {
 
     this.getAvailableWorkers = function() {
         return new Promise((resolve, reject) => {
-            this.db.get("workers", (err, result) => {
+            this.db.view(designDoc, availableWorkersView, (err, result) => {
                 if(err) {
                     reject(err);
                 } else {
-                    resolve(result.workers);
+                    var workers = result.rows.map(row => {
+                        return row.key
+                    });
+                    resolve(workers);
                 }
             });
         });
@@ -92,8 +96,7 @@ module.exports = function(dbURL, dbName) {
                         if(err) {
                             reject(err);
                         } else {
-                            // reasonable default...
-                            var assignment = 'worker0';
+                            var assignment = workers[0] || 'worker0';
 
                             // update counter values with the number of assigned triggers
                             // for each worker

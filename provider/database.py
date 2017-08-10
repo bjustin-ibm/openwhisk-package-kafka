@@ -41,7 +41,6 @@ class Database:
 
     instance = os.getenv('INSTANCE', 'messageHubTrigger-0')
     canaryId = "canary-{}".format(instance)
-    workersId = "workers"
 
     def __init__(self, timeout=None):
         self.client = CouchDB(self.username, self.password, url=self.url, timeout=timeout)
@@ -159,13 +158,12 @@ class Database:
                 }
             })
 
-        # TODO have this instance add only itself to the workers doc
-        # this requires the instance to have a worker ID passed into it
-        if self.workersId not in self.database.keys(remote=True):
-            logging.info("Creating workers doc")
+        myWorkerId = os.getenv('WORKER', 'worker0')
+        if myWorkerId not in self.database.keys(remote=True):
+            logging.info("Adding {}".format(myWorkerId))
             self.database.create_document({
-                '_id': self.workersId,
-                'workers': ["worker0"]
+                '_id': myWorkerId,
+                'type': 'worker'
             })
 
         logging.info('Database migration complete')
