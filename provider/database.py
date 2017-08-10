@@ -127,7 +127,7 @@ class Database:
 
         by_worker_view = {
             'map': """function(doc) {
-                        if(doc.triggerURL){
+                        if(doc.triggerURL && (!doc.status || doc.status.active)) {
                             emit(doc.worker || 'worker0', 1);
                         }
                     }""",
